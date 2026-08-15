@@ -36,7 +36,7 @@
 1. 把本仓库复制到 DSH 的 **profile 目录**（默认 `~/.dsh/profiles/web/`）：
 
    ```bash
-   git clone https://github.com/<your-name>/dsh-wechat-bridge ~/.dsh/profiles/web/dsh-wechat-bridge
+   git clone https://github.com/whj2015/dsh-wechat-bridge ~/.dsh/profiles/web/dsh-wechat-bridge
    cd ~/.dsh/profiles/web/dsh-wechat-bridge/bridge
    npm install
    ```
