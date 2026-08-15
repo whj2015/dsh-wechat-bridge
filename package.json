@@ -1,0 +1,12 @@
+{
+  "name": "dsh-wechat-bridge",
+  "version": "1.0.0",
+  "description": "DSH WeChat Bridge: connect a personal WeChat account (iLink protocol) to DeepSeek Harness agents",
+  "type": "module",
+  "main": "index.js",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
+}

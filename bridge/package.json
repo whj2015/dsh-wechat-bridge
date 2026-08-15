@@ -1,0 +1,14 @@
+{
+  "name": "dsh-wechat-bridge",
+  "version": "0.1.0",
+  "description": "DSH WeChat iLink bridge: relays WeChat messages between the iLink Bot API and the DeepSeek Harness web endpoints",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@wechatbot/wechatbot": "^2.2.0",
+    "qrcode": "^1.5.4"
+  }
+}
