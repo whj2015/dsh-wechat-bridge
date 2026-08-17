@@ -16,7 +16,9 @@
  *              config: {}   # optional overrides below
  *   3. Restart `dsh web`. Scan the QR shown in the Run panel / terminal.
  *
- * Config (all optional):
+ * Config (all optional): edit them in the browser at
+ *   http://127.0.0.1:3080/wxb/config  (loopback-only, same as the /qr page),
+ *   or via cordis.patch.yml overrides below.
  *   bridgeDir      - directory containing bridge.js + node_modules
  *                    (default: ./bridge inside this package)
  *   wechatWsPath   - path of the "WeChat" GUI workspace; also the agents' cwd
@@ -42,14 +44,15 @@ export default {
     const settingsSvc = ctx.get('settings')
     if (settingsSvc) {
       try {
+        // schemastery: fields are optional by default; enums are unions of consts.
         settingsSvc.register('dsh-wechat-bridge', z.object({
-          bridgeDir: z.string().optional(),
-          wechatWsPath: z.string().optional(),
-          secret: z.string().optional(),
-          preset: z.string().optional(),
-          approvalPolicy: z.enum(['never', 'ask']).optional(),
-          base: z.string().optional(),
-          workspaceTitle: z.string().optional(),
+          bridgeDir: z.string(),
+          wechatWsPath: z.string(),
+          secret: z.string(),
+          preset: z.string(),
+          approvalPolicy: z.union([z.const('never'), z.const('ask')]),
+          base: z.string(),
+          workspaceTitle: z.string(),
         }), {})
         const saved = settingsSvc.get('dsh-wechat-bridge')
         if (saved && typeof saved === 'object') cfg = { ...cfg, ...saved }
@@ -70,7 +73,7 @@ export default {
     const WECHAT_WS_PATH = cfg.wechatWsPath || PACKAGE_DIR.slice(0, -1)
     const WS_TITLE = cfg.workspaceTitle || 'WeChat'
     const PRESET = cfg.preset || 'cordis'
-    const SECRET = cfg.secret || 'dsh-wechat-bridge-local-token'
+    let SECRET = cfg.secret || 'dsh-wechat-bridge-local-token'
     const BASE = cfg.base || '/wxb'
     const APPROVAL_POLICY = cfg.approvalPolicy || 'never'
     const GEN_FILE = BRIDGE_DIR + '/wechat-gen.json'
@@ -566,6 +569,139 @@ export default {
         + '</body></html>'
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
       res.end(html)
+    }}))
+
+    // ---------------- self-contained config page (host installs) -------------
+    // The native Web Settings page only renders namespaces whitelisted in the
+    // DSH core apiproxy, and third-party host plugins have no client half, so
+    // their namespaces are not exposed there (the core even documents that as
+    // deferred work). To keep configuration GUI-editable after a host install
+    // without touching core packages, this plugin serves its own browser page
+    // on the DSH web server — same loopback-only policy as the /qr page.
+    const CONFIG_KEYS = ['bridgeDir', 'wechatWsPath', 'secret', 'preset', 'approvalPolicy', 'base', 'workspaceTitle']
+    const currentConfig = () => {
+      const out = {}
+      for (const k of CONFIG_KEYS) {
+        const v = cfg[k]
+        out[k] = v === undefined || v === null ? '' : String(v)
+      }
+      return out
+    }
+    const sanitizePatch = (raw) => {
+      const patch = {}
+      const src = raw && typeof raw === 'object' ? raw : {}
+      for (const k of CONFIG_KEYS) {
+        const v = src[k]
+        if (v === undefined || v === null) continue
+        const s = String(v).trim()
+        if (s === '') continue // empty means "use default", falls back on restart
+        if (k === 'approvalPolicy' && s !== 'never' && s !== 'ask') continue
+        patch[k] = s
+      }
+      return patch
+    }
+    const configPageHtml = () => {
+      const fields = [
+        ['bridgeDir', 'bridge 目录', 'text', 'bridge.js 所在目录（默认：本插件包内 ./bridge）'],
+        ['wechatWsPath', '微信工作区路径', 'text', 'WeChat 工作区/代理 cwd（默认：插件包目录）'],
+        ['secret', '接口密钥', 'password', '/wxb/* 端点共享令牌（默认 dsh-wechat-bridge-local-token）'],
+        ['preset', 'Agent 预设', 'text', '微信代理挂载的预设（默认 cordis）'],
+        ['approvalPolicy', '审批策略', 'select', 'never=手机无法点击审批，自动放行；ask=需要审批'],
+        ['base', 'URL 前缀', 'text', '/wxb/* 路由前缀（默认 /wxb，修改后需重启 DSH）'],
+        ['workspaceTitle', '工作区标题', 'text', 'GUI 中 WeChat 工作区的显示名（默认 WeChat）'],
+      ]
+      const rows = fields.map(([k, label, type, hint]) => {
+        const control = type === 'select'
+          ? '<select id="f-' + k + '"><option value="never">never（推荐，手机端免审批）</option><option value="ask">ask</option></select>'
+          : '<input id="f-' + k + '" type="' + type + '" spellcheck="false">'
+        return '<label class="row"><span class="lab">' + label + '</span>' + control + '<span class="hint">' + hint + '</span></label>'
+      }).join('')
+      return '<!doctype html><html><head><meta charset="utf-8"><title>WeChat Bridge 配置</title>'
+        + '<style>body{font-family:system-ui,sans-serif;background:#111;color:#eee;margin:0;padding:32px 16px;display:flex;flex-direction:column;align-items:center}'
+        + '.card{background:#1d1d1d;border:1px solid #333;border-radius:12px;padding:24px 28px;max-width:560px;width:100%}'
+        + 'h1{font-size:20px;margin:0 0 4px}h1 span{font-size:13px;color:#888;font-weight:400;margin-left:8px}'
+        + '.row{display:flex;flex-direction:column;gap:4px;margin:14px 0}.lab{font-size:13px;color:#bbb;font-weight:600}'
+        + 'input,select{background:#111;border:1px solid #333;border-radius:8px;color:#eee;padding:8px 10px;font-size:14px;font-family:inherit}'
+        + 'input:focus,select:focus{outline:none;border-color:#4f8cff}'
+        + '.hint{font-size:12px;color:#777}.bar{display:flex;align-items:center;gap:10px;margin-top:18px}'
+        + 'button{background:#2563eb;border:0;border-radius:8px;color:#fff;padding:9px 20px;font-size:14px;cursor:pointer}'
+        + 'button.ghost{background:transparent;border:1px solid #444;color:#bbb}button.ghost:hover{color:#eee;border-color:#666}'
+        + 'button:disabled{opacity:.5;cursor:default}'
+        + '#msg{font-size:13px;min-height:20px}#msg.ok{color:#4ade80}#msg.err{color:#f87171}'
+        + '.status{margin-top:16px;padding-top:14px;border-top:1px solid #2a2a2a;font-size:13px;color:#999;line-height:1.7}'
+        + '.warn{background:#3b2d12;color:#fbbf24;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:14px}'
+        + '</style></head><body><div class="card">'
+        + '<h1>📱 WeChat Bridge 配置<span>host 安装版 · 修改保存后自动重启 bridge</span></h1>'
+        + '<div class="warn">仅「接口密钥」保存后立即生效（bridge 自动重启）；其余字段保存后需重启 DSH web 才完全生效。</div>'
+        + rows
+        + '<div class="bar"><button id="save">保存配置</button><button id="reset" class="ghost">恢复默认</button><span id="msg"></span></div>'
+        + '<div class="status" id="status">加载中…</div>'
+        + '</div>'
+        + '<script>'
+        + 'const K=' + JSON.stringify(CONFIG_KEYS) + ';'
+        + 'async function j(u,o){const r=await fetch(u,o);const t=await r.text();try{return JSON.parse(t)}catch(e){return {error:t}}}'
+        + 'async function load(){const d=await j("' + BASE + '/config.json");if(d&&d.config){for(const k of K){const el=document.getElementById("f-"+k);if(!el)continue;if(el.tagName==="SELECT")el.value=d.config[k]||"never";else el.value=d.config[k]||""}}'
+        + 'const s=d&&d.effective;document.getElementById("status").textContent=s?("状态："+(s.phase||"")+" · "+(s.detail||"")+" · 在线用户："+((s.users||[]).length)+" · bridge："+(s.bridgeAlive?"运行中 (pid "+s.bridgePid+")":"未运行")):"状态不可用";}'
+        + 'document.getElementById("save").onclick=async()=>{const btn=document.getElementById("save"),msg=document.getElementById("msg");btn.disabled=true;msg.textContent="保存中…";msg.className="";'
+        + 'const values={};for(const k of K){const el=document.getElementById("f-"+k);if(!el)continue;values[k]=el.value}'
+        + 'const d=await j("' + BASE + '/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({values})});'
+        + 'if(d&&d.ok){msg.textContent="已保存 ✅"+(d.needsRestart&&d.needsRestart.length?"（以下项需重启 DSH："+d.needsRestart.join("、")+"）":"")+"，bridge 已自动重启";msg.className="ok";await load();}'
+        + 'else{msg.textContent="保存失败："+((d&&d.error)||"未知错误");msg.className="err";}btn.disabled=false;};'
+        + 'document.getElementById("reset").onclick=async()=>{const btn=document.getElementById("reset"),msg=document.getElementById("msg");btn.disabled=true;msg.textContent="重置中…";msg.className="";'
+        + 'const d=await j("' + BASE + '/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reset:true})});'
+        + 'if(d&&d.ok){msg.textContent="已恢复默认 ✅（base/bridgeDir/wechatWsPath 需重启 DSH）";msg.className="ok";await load();}'
+        + 'else{msg.textContent="重置失败："+((d&&d.error)||"未知错误");msg.className="err";}btn.disabled=false;};'
+        + 'load();'
+        + '</script></body></html>'
+    }
+
+    routeDisposers.push(ws.register({ kind: 'exact', path: BASE + '/config.json', handler: async (req, res) => {
+      // Loopback-only, same policy as /qr.
+      sendJson(res, 200, { config: currentConfig(), effective: statusSnapshot() })
+    }}))
+
+    routeDisposers.push(ws.register({ kind: 'exact', path: BASE + '/config', handler: async (req, res) => {
+      if (req.method === 'POST') {
+        const body = await readBody(req)
+        if (body && body.reset) {
+          // Restore composition defaults: drop every saved override.
+          try {
+            const before = currentConfig()
+            if (settingsSvc) await settingsSvc.replace('dsh-wechat-bridge', {})
+            cfg = { ...(config || {}) }
+            SECRET = cfg.secret || 'dsh-wechat-bridge-local-token'
+            const after = currentConfig()
+            const changed = CONFIG_KEYS.filter((k) => (before[k] || '') !== (after[k] || ''))
+            const needsRestart = changed.filter((k) => k !== 'secret')
+            if (changed.includes('secret')) restartBridge()
+            console.log('[wechat] config reset to defaults via /wxb/config')
+            return sendJson(res, 200, { ok: true, config: after, needsRestart })
+          } catch (e) {
+            return sendJson(res, 400, { error: '重置失败：' + String((e && e.message) || e).slice(0, 200) })
+          }
+        }
+        const patch = sanitizePatch(body && body.values)
+        if (!Object.keys(patch).length) return sendJson(res, 400, { error: '没有需要保存的配置项' })
+        if (settingsSvc) {
+          try {
+            await settingsSvc.update('dsh-wechat-bridge', patch)
+          } catch (e) {
+            return sendJson(res, 400, { error: '配置校验失败：' + String((e && e.message) || e).slice(0, 200) })
+          }
+        }
+        cfg = { ...cfg, ...patch }
+        SECRET = cfg.secret || 'dsh-wechat-bridge-local-token'
+        // Only `secret` hot-applies (routes re-authorize immediately; bridge
+        // restarts with the new token). Every other field is read into a const
+        // at startup, so it needs a DSH restart to take effect.
+        const needsRestart = Object.keys(patch).filter((k) => k !== 'secret')
+        if (patch.secret) restartBridge()
+        console.log('[wechat] config updated via /wxb/config:', JSON.stringify(Object.keys(patch)))
+        return sendJson(res, 200, { ok: true, config: currentConfig(), needsRestart })
+      }
+      // GET: the config page itself.
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+      res.end(configPageHtml())
     }}))
 
     const startBridge = async () => {

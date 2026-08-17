@@ -17,7 +17,7 @@
 - 🔄 **/new 保留旧对话**：新对话用轮次后缀创建，旧对话完整保存、随时回看
 - 📜 **/history 查询**：微信内直接列出/查看任意历史轮次
 - 🖼️ **媒体支持**：图片/文件自动落盘并给出路径，agent 可读取处理
-- ⚙️ **配置页面**：Web GUI Settings → WeChat Bridge 直接改配置（bridgeDir/secret/preset 等）
+- ⚙️ **网页配置页**：`http://127.0.0.1:3080/wxb/config` 浏览器直接改配置，保存即生效
 - 🚀 **一键安装**：`curl .../install.sh | bash`
 - 🔌 **host 组合插件**：写进 `cordis.patch.yml` 后随 DSH 自动加载、7×24 运行
 
@@ -67,8 +67,7 @@ curl -fsSL https://raw.githubusercontent.com/whj2015/dsh-wechat-bridge/main/inst
 
 3. 重启 `dsh`。首次登录扫码有三种方式（任选其一）：
    - **终端 ASCII 二维码**：DSH 终端日志里直接打印可扫描的二维码（黑白色块）
-   - **浏览器大图**：访问 `http://127.0.0.1:3080/wxb/qr`（需带 `Authorization: Bearer <secret>`，或用
-     浏览器直接访问时先 `curl http://127.0.0.1:3080/wxb/qr -H "Authorization: Bearer dsh-wechat-bridge-local-token" -o /tmp/qr.html` 后打开）
+   - **浏览器大图**：访问 `http://127.0.0.1:3080/wxb/qr`（仅 127.0.0.1，无鉴权）
    - **扫码链接**：终端日志打印的链接，微信内打开/转发后长按识别
    
    用手机微信（建议小号）扫码确认，凭据保存在 `bridge/wechat-credentials/`，之后免扫码。
@@ -78,21 +77,31 @@ curl -fsSL https://raw.githubusercontent.com/whj2015/dsh-wechat-bridge/main/inst
 
 ## 配置页面
 
-插件注册了 **`dsh-wechat-bridge` 配置命名空间**，Web GUI 的
-**Settings → WeChat Bridge** 会自动渲染配置表单（无需写客户端代码）：
+host 安装后无需碰终端：浏览器打开 **`http://127.0.0.1:3080/wxb/config`**
+（与 `/wxb/qr` 同策略、仅 127.0.0.1 可访问），即可查看/修改全部配置并保存。
+保存的值写入 DSH 的 `settings.yaml`（`dsh-wechat-bridge` 命名空间），
+**覆盖** `cordis.patch.yml` 中 `config` 的同名字段；留空的字段回落到默认值。
 
 | 配置项 | 说明 | 默认 |
 |--------|------|------|
 | `bridgeDir` | bridge 进程目录 | 包内 `./bridge` |
-| `wechatWsPath` | WeChat 工作区路径（须为已存在目录） | 包目录 |
+| `wechatWsPath` | WeChat 工作区路径 | 包目录 |
 | `secret` | `/wxb/*` 端点共享密钥 | `dsh-wechat-bridge-local-token`（仅 127.0.0.1） |
 | `preset` | 微信 agent 的 preset | `cordis` |
 | `approvalPolicy` | `never` / `ask` | `never`（手机端无法点批准） |
 | `base` | 端点前缀 | `/wxb` |
 | `workspaceTitle` | GUI 工作区名称 | `WeChat` |
 
-> 修改配置后需**重启 DSH** 生效。配置页保存的值会覆盖 `cordis.patch.yml` 中
-> `config` 的同名字段。
+保存行为：
+- `secret` 保存后 **立即生效**（路由重新鉴权 + bridge 自动重启）；
+- 其余字段（`preset`/`approvalPolicy`/`base`/`bridgeDir`/`wechatWsPath`/
+  `workspaceTitle`）在启动时读入常量，保存后需**重启 DSH** 完全生效，页面会提示；
+- 页面上的「恢复默认」按钮可一键清空所有已保存覆盖，回到组合配置。
+
+> 为什么不在原生 Settings 页？DSH 内核（`dsh-host-apiproxy`）对 Web 设置页
+> 渲染的命名空间有**硬编码白名单**（核心插件专属），第三方 host 插件注册的
+> 命名空间会被 `settings-not-exposed` 拒绝，且该扩展点在内核中是"deferred work"。
+> 因此本插件自带独立配置页，无需改动内核、升级不失效。
 
 ## 微信内命令
 
