@@ -545,7 +545,7 @@ export default {
     // Browser page showing the login QR — the host install has no GUI panel,
     // so this is how the user scans on first login. Also shows live status.
     routeDisposers.push(ws.register({ kind: 'exact', path: BASE + '/qr', handler: async (req, res) => {
-      if (!authorized(req)) return sendJson(res, 401, { error: 'unauthorized' })
+      // No auth on purpose: loopback-only status/QR page for host installs.
       const phase = state.phase
       const img = state.qrImage
       const url = state.qrUrl
