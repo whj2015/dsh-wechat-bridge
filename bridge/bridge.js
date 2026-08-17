@@ -115,9 +115,21 @@ async function qrDataUrl(loginUrl) {
   }
 }
 
+/** Print a scannable ASCII QR to the terminal (host installs have no panel). */
+function printAsciiQr(loginUrl) {
+  try {
+    const art = QRCode.toString(loginUrl, { type: 'terminal', small: true })
+    console.log(art)
+  } catch (err) {
+    console.error('[bridge] ASCII QR render failed:', err?.message || err)
+  }
+}
+
 async function onQrUrl(url) {
   console.log('\n========== 微信扫码登录 ==========')
-  console.log('扫码链接（用手机微信扫以下二维码，或访问链接）：')
+  console.log('请用手机微信扫描下方二维码（或用浏览器打开 /wxb/qr 查看大图）：')
+  printAsciiQr(url)
+  console.log('扫码链接（二维码无法显示时）：')
   console.log(url)
   console.log('==================================\n')
   const image = await qrDataUrl(url)

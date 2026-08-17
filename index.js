@@ -542,6 +542,32 @@ export default {
       sendJson(res, 200, statusSnapshot())
     }}))
 
+    // Browser page showing the login QR — the host install has no GUI panel,
+    // so this is how the user scans on first login. Also shows live status.
+    routeDisposers.push(ws.register({ kind: 'exact', path: BASE + '/qr', handler: async (req, res) => {
+      if (!authorized(req)) return sendJson(res, 401, { error: 'unauthorized' })
+      const phase = state.phase
+      const img = state.qrImage
+      const url = state.qrUrl
+      const html = '<!doctype html><html><head><meta charset="utf-8"><title>WeChat Bridge</title>'
+        + '<style>body{font-family:system-ui,sans-serif;background:#111;color:#eee;display:flex;flex-direction:column;align-items:center;padding:40px;gap:14px}'
+        + '.card{background:#1d1d1d;border:1px solid #333;border-radius:12px;padding:28px;text-align:center;max-width:420px}'
+        + 'h1{font-size:20px;margin:0 0 6px}.badge{display:inline-block;padding:3px 12px;border-radius:999px;font-size:13px;margin-bottom:14px}'
+        + '.online{background:#123b22;color:#4ade80}.waiting{background:#3b2d12;color:#fbbf24}'
+        + '.offline{background:#3b1216;color:#f87171}'
+        + 'img{width:260px;height:260px;border-radius:10px;border:1px solid #444;background:#fff;padding:8px}'
+        + 'a{color:#7dd3fc}.muted{color:#999;font-size:13px}</style></head><body>'
+        + '<div class="card"><h1>📱 WeChat Bridge</h1>'
+        + '<span class="badge ' + (phase === 'online' ? 'online' : phase === 'waiting-qr' || phase === 'scanned' ? 'waiting' : 'offline') + '">'
+        + (phase === 'online' ? '在线' : phase === 'waiting-qr' ? '等待扫码' : phase === 'scanned' ? '已扫码，请在手机确认' : phase === 'error' ? '错误' : phase) + '</span><br>'
+        + (img ? '<img src="' + img + '" alt="微信登录二维码">' : '<p class="muted">暂无二维码</p>')
+        + (url ? '<p class="muted">链接：<a href="' + url + '">' + url.slice(0, 60) + '…</a></p>' : '')
+        + '<p class="muted">状态：' + String(state.detail || '') + '</p></div>'
+        + '</body></html>'
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+      res.end(html)
+    }}))
+
     const startBridge = async () => {
       if (stopping) return
       if (!sub) {

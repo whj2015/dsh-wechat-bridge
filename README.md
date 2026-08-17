@@ -65,7 +65,16 @@ curl -fsSL https://raw.githubusercontent.com/whj2015/dsh-wechat-bridge/main/inst
          config: {}        # 可选配置见下
    ```
 
-3. 重启 `dsh`，查看终端日志中的扫码链接，用手机微信（建议小号）扫码确认。
+3. 重启 `dsh`。首次登录扫码有三种方式（任选其一）：
+   - **终端 ASCII 二维码**：DSH 终端日志里直接打印可扫描的二维码（黑白色块）
+   - **浏览器大图**：访问 `http://127.0.0.1:3080/wxb/qr`（需带 `Authorization: Bearer <secret>`，或用
+     浏览器直接访问时先 `curl http://127.0.0.1:3080/wxb/qr -H "Authorization: Bearer dsh-wechat-bridge-local-token" -o /tmp/qr.html` 后打开）
+   - **扫码链接**：终端日志打印的链接，微信内打开/转发后长按识别
+   
+   用手机微信（建议小号）扫码确认，凭据保存在 `bridge/wechat-credentials/`，之后免扫码。
+
+> 说明：host 安装没有 Web 面板（动态插件才有），登录后如需看状态，访问
+> `http://127.0.0.1:3080/wxb/status`（JSON）或查看终端日志/WeChat 工作区。
 
 ## 配置页面
 
