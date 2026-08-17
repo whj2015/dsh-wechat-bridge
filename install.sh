@@ -53,7 +53,19 @@ fi
 if grep -q "dsh-wechat-bridge" "$PATCH_FILE"; then
   echo "    已注册（跳过）"
 else
-  cat >> "$PATCH_FILE" <<'EOF'
+  # 空数组文件（内容仅为 []）必须整体替换，否则 append 会产生两个 YAML 文档
+  TRIMMED="$(tr -d '[:space:]' < "$PATCH_FILE")"
+  if [ "$TRIMMED" = "[]" ] || [ -z "$TRIMMED" ]; then
+    cat > "$PATCH_FILE" <<'EOF'
+# dsh-wechat-bridge: 微信接入 DSH（安装脚本自动添加）
+- insert:
+    - id: dsh-wechat-bridge
+      name: ./dsh-wechat-bridge/index.js
+      config: {}
+EOF
+    echo "    已写入注册条目（覆盖空列表）"
+  else
+    cat >> "$PATCH_FILE" <<'EOF'
 
 # dsh-wechat-bridge: 微信接入 DSH（安装脚本自动添加）
 - insert:
@@ -61,7 +73,8 @@ else
       name: ./dsh-wechat-bridge/index.js
       config: {}
 EOF
-  echo "    已追加注册条目"
+    echo "    已追加注册条目"
+  fi
 fi
 
 # ---- 5. 完成 ----
