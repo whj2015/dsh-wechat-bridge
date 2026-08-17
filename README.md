@@ -17,6 +17,8 @@
 - 🔄 **/new 保留旧对话**：新对话用轮次后缀创建，旧对话完整保存、随时回看
 - 📜 **/history 查询**：微信内直接列出/查看任意历史轮次
 - 🖼️ **媒体支持**：图片/文件自动落盘并给出路径，agent 可读取处理
+- ⚙️ **配置页面**：Web GUI Settings → WeChat Bridge 直接改配置（bridgeDir/secret/preset 等）
+- 🚀 **一键安装**：`curl .../install.sh | bash`
 - 🔌 **host 组合插件**：写进 `cordis.patch.yml` 后随 DSH 自动加载、7×24 运行
 
 ## 架构
@@ -35,10 +37,23 @@
 
 1. 把本仓库复制到 DSH 的 **profile 目录**（默认 `~/.dsh/profiles/web/`）：
 
+### 一键安装（推荐）
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/whj2015/dsh-wechat-bridge/main/install.sh | bash
+```
+
+脚本自动完成：克隆插件到 `~/.dsh/profiles/web/` → 安装依赖 → 注册到
+`cordis.patch.yml` → 提示重启 DSH。
+
+### 手动安装
+
+1. 把本仓库复制到 DSH 的 **profile 目录**（默认 `~/.dsh/profiles/web/`）：
+
    ```bash
    git clone https://github.com/whj2015/dsh-wechat-bridge ~/.dsh/profiles/web/dsh-wechat-bridge
-   cd ~/.dsh/profiles/web/dsh-wechat-bridge/bridge
-   npm install
+   cd ~/.dsh/profiles/web/dsh-wechat-bridge && npm install
+   cd bridge && npm install
    ```
 
 2. 编辑 `~/.dsh/profiles/web/cordis.patch.yml`，追加：
@@ -52,7 +67,10 @@
 
 3. 重启 `dsh`，查看终端日志中的扫码链接，用手机微信（建议小号）扫码确认。
 
-### 可选配置（`config` 字段）
+## 配置页面
+
+插件注册了 **`dsh-wechat-bridge` 配置命名空间**，Web GUI 的
+**Settings → WeChat Bridge** 会自动渲染配置表单（无需写客户端代码）：
 
 | 配置项 | 说明 | 默认 |
 |--------|------|------|
@@ -63,6 +81,9 @@
 | `approvalPolicy` | `never` / `ask` | `never`（手机端无法点批准） |
 | `base` | 端点前缀 | `/wxb` |
 | `workspaceTitle` | GUI 工作区名称 | `WeChat` |
+
+> 修改配置后需**重启 DSH** 生效。配置页保存的值会覆盖 `cordis.patch.yml` 中
+> `config` 的同名字段。
 
 ## 微信内命令
 

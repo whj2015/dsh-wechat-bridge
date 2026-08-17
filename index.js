@@ -29,13 +29,34 @@
  *   workspaceTitle - GUI workspace title (default: WeChat)
  */
 import { fileURLToPath } from 'node:url'
+import z from '@deepseek-ai/schemastery'
 
 const PACKAGE_DIR = fileURLToPath(new URL('.', import.meta.url))
 
 export default {
   inject: ['webServer', 'agents', 'timer'],
   async apply(ctx, config) {
-    const cfg = config || {}
+    let cfg = config || {}
+    // GUI configuration page: this namespace is rendered by the Web Settings
+    // UI; saved values override composition config.
+    const settingsSvc = ctx.get('settings')
+    if (settingsSvc) {
+      try {
+        settingsSvc.register('dsh-wechat-bridge', z.object({
+          bridgeDir: z.string().optional(),
+          wechatWsPath: z.string().optional(),
+          secret: z.string().optional(),
+          preset: z.string().optional(),
+          approvalPolicy: z.enum(['never', 'ask']).optional(),
+          base: z.string().optional(),
+          workspaceTitle: z.string().optional(),
+        }), {})
+        const saved = settingsSvc.get('dsh-wechat-bridge')
+        if (saved && typeof saved === 'object') cfg = { ...cfg, ...saved }
+      } catch (e) {
+        console.error('[wechat] settings register failed:', e)
+      }
+    }
     const ws = ctx.get('webServer')
     const agentsSvc = ctx.get('agents')
     const sub = ctx.get('subprocess')
